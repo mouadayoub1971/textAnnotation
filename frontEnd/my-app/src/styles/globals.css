@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: "Montserrat", "Arial";
+}
+
+#scrollbar {
+  scrollbar-color: #2c384a #121A24;
+}
+
+.swal2-popup {
+  border: 1px solid #F0F1F2;
+  border-radius: 20px;
+  color: #F0F1F2;
+}
+
+select {
+  -webkit-appearance: none;
+   appearance: none;
+}
+
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper::after {
+  content: "⇣";
+  font-size: 1rem;
+  top: 14px;
+  right: 18px;
+  position: absolute;
+}
