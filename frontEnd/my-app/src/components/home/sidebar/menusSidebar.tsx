@@ -15,7 +15,7 @@ const MenusSideBar = ({ menus, activeMenu, open, handleMenuClick } : MenusSideBa
           onClick={() => handleMenuClick(menu.href)}>
             <div className={`${!open && "ps-[2px]"}`}>{activeMenu === menu.href ? menu.activeIcon : menu.icon}</div>
             <div className={`${!open && "hidden"} ${activeMenu === menu.href && "font-semibold"} origin-left duration-300`}>
-              {menu.title}
+            {menu.title}
             </div>
         </li>
       ))}

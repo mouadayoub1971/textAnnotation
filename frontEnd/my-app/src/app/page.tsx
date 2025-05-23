@@ -19,7 +19,7 @@ import { Login } from "@/templates"
 import useHandleResize from "@/utils/handleResize"
 
 const LoginPage = () => {
-const { setToken , token} = useAuth()
+const { setToken , token, setRole, role, setUsername, username} = useAuth()
   // Router
   const router = useRouter()
   useEffect(() => {
@@ -47,8 +47,8 @@ const { setToken , token} = useAuth()
     e.preventDefault()
 
     try {
-      const response = await axios.post(`http://127.0.0.1:8080/api/auth/signin`, {
-        username: emailInput,
+      const response = await axios.post(`http://127.0.0.1:8080/api/auth/login`, {
+        login: emailInput,
         password: passInput
       })
       
@@ -62,9 +62,21 @@ const { setToken , token} = useAuth()
           }
         });
         console.log(response)
-        console.log(response.data.accessToken)
-        setToken(response.data.accessToken)
-        setTimeout(() => {router.push("/home")}, 2000)
+        console.log(response.data.token)
+        setToken(response.data.token)
+        console.log(response)
+        console.log(response.data.role)
+        setRole(response.data.role)
+        console.log(response)
+        console.log(response.data.username)
+        setUsername(response.data.username)
+        if (response.data.role === "ROLE_ADMIN_ROLE") {
+          setTimeout(() => {router.push("/home")}, 2000)
+        }
+        else {
+          setTimeout(() => {router.push("/annotateur")}, 2000)
+        }
+        
       }
     } catch (error) {
       toast.error("Incorrect email or password...", { 

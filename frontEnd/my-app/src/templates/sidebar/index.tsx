@@ -1,3 +1,4 @@
+"use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSidebar } from "@/context/sidebarContext"
@@ -5,16 +6,19 @@ import { RiUserSearchLine, RiUserSearchFill, RiLogoutCircleRFill} from "react-ic
 import { AiOutlineLogout } from "react-icons/ai"
 import { HiHome, HiOutlineHome } from "react-icons/hi"
 import { HeaderSidebar, MenusSideBar, Collapsible } from "@/components"
+import { useAuth } from "@/context/authContext"
 
 type SidebarProps = { page: string }
 
-const Sidebar = ({ page } : SidebarProps) => {
+const Sidebar = ({ page }: SidebarProps) => {
+  const {username } = useAuth()
   const router = useRouter()
   const {open, setOpen} = useSidebar();
   const [activeMenu, setActiveMenu] = useState<string>(`${page}`)
   const menus = [
     {title: "Home", icon: <HiOutlineHome/>, activeIcon: <HiHome />, href: "/home"},
-    {title: "User Management", icon: <RiUserSearchLine />, activeIcon: <RiUserSearchFill />, href: "/home/user"},
+    { title: "Annotateurs", icon: <RiUserSearchLine />, activeIcon: <RiUserSearchFill />, href: "/home/user" },
+    { title: "Datasets", icon: <RiUserSearchLine />, activeIcon: <RiUserSearchFill />, href: "/home/dataset" },
     {title: "Logout", icon: <AiOutlineLogout />, activeIcon: <RiLogoutCircleRFill />, gap: true, href: "/home/logout"},
   ]
 
