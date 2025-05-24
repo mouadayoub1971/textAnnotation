@@ -1,814 +1,746 @@
 "use client"
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/authContext"
 import { 
-  ClipboardList,
-  FileText,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
+  User, 
+  ChevronLeft, 
+  ChevronRight, 
+  CheckCircle, 
+  Clock, 
+  BookOpen,
   LogOut,
-  StickyNote,
-  BarChart3,
-  CheckSquare,
-  ClipboardCheck
+  Home,
+  History,
+  Check
 } from 'lucide-react';
 
-// Mock API Configuration
-const API_BASE_URL = 'http://localhost:8080';
-
-// Interfaces
-interface Task {
-  id: number;
-  title: string;
-  description: string;
-  dataset: {
-    id: number;
-    name: string;
-  };
-  couples: Array<{
-    id: number;
-    text1: string;
-    text2: string;
-  }>;
-  createdAt: string;
-}
-
-interface TaskDetail {
-  task: Task;
-  currentCouple: {
-    id: number;
-    text1: string;
-    text2: string;
-  };
-  currentIndex: number;
-  totalCouples: number;
-  selectedClassId: string | null;
-  userName: string;
-}
-
-interface AnnotationClass {
-  id: string;
-  name: string;
-  description: string;
-}
-
-interface Annotation {
-  id: number;
-  classSelection: string;
-  createdAt: string;
-  coupleText: {
-    id: number;
-    text1: string;
-    text2: string;
-  };
-  task: {
-    id: number;
-    title: string;
-  };
-}
-
-// Mock API Service
-class UserTasksApiService {
-  // Mock data
-  static mockTasks: Task[] = [
-    {
-      id: 1,
-      title: "Text Similarity Analysis",
-      description: "Annotate text pairs for similarity detection",
-      dataset: { id: 1, name: "News Articles Dataset" },
-      couples: [
-        { id: 1, text1: "The weather is nice today.", text2: "Today has beautiful weather." },
-        { id: 2, text1: "I love programming.", text2: "Coding is my passion." },
-        { id: 3, text1: "The cat is sleeping.", text2: "A dog is running in the park." }
-      ],
-      createdAt: "2024-01-15T10:00:00Z"
-    },
-    {
-      id: 2,
-      title: "Sentiment Classification",
-      description: "Classify sentiment in social media posts",
-      dataset: { id: 2, name: "Twitter Posts Dataset" },
-      couples: [
-        { id: 4, text1: "This movie is amazing!", text2: "Great film, loved it!" },
-        { id: 5, text1: "Terrible service today.", text2: "Very disappointed with the quality." }
-      ],
-      createdAt: "2024-01-16T14:30:00Z"
-    }
-  ];
-
-static mockProgress: Record<number, number> = { 1: 1, 2: 0 };
-
-  static mockClasses: AnnotationClass[] = [
-    { id: "similar", name: "Similar", description: "Texts have similar meaning" },
-    { id: "different", name: "Different", description: "Texts have different meanings" },
-    { id: "neutral", name: "Neutral", description: "Unclear or neutral relationship" }
-  ];
-
-  static mockAnnotations: Annotation[] = [
-    {
-      id: 1,
-      classSelection: "similar",
-      createdAt: "2024-01-15T11:00:00Z",
-      coupleText: { id: 1, text1: "The weather is nice today.", text2: "Today has beautiful weather." },
-      task: { id: 1, title: "Text Similarity Analysis" }
-    }
-  ];
-
-  static async getUserTasks(): Promise<any> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          tasks: this.mockTasks,
-          taskProgressMap: this.mockProgress,
-          userName: "John Doe"
-        });
-      }, 1000);
-    });
-  }
-
-  static async getTaskDetail(taskId: number, index?: number): Promise<TaskDetail> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const task = this.mockTasks.find(t => t.id === taskId);
-        const currentIndex = index ?? this.mockProgress[taskId] ?? 0;
-        const currentCouple = task?.couples[currentIndex];
-        
-        resolve({
-          task: task!,
-          currentCouple: currentCouple!,
-          currentIndex,
-          totalCouples: task?.couples.length ?? 0,
-          selectedClassId: null,
-          userName: "John Doe"
-        });
-      }, 500);
-    });
-  }
-
-  static async submitAnnotation(taskId: number, coupleId: number, classSelection: string, currentIndex: number): Promise<any> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        // Update progress
-        this.mockProgress[taskId] = currentIndex + 1;
-        
-        // Add to annotations
-        const task = this.mockTasks.find(t => t.id === taskId);
-        const couple = task?.couples.find(c => c.id === coupleId);
-        
-        if (task && couple) {
-          this.mockAnnotations.push({
-            id: this.mockAnnotations.length + 1,
-            classSelection,
-            createdAt: new Date().toISOString(),
-            coupleText: couple,
-            task: { id: task.id, title: task.title }
-          });
-        }
-
-        const nextIndex = currentIndex + 1;
-        const completed = task && nextIndex >= task.couples.length;
-
-        resolve({
-          message: "Annotation saved successfully",
-          nextIndex,
-          completed,
-          completionMessage: completed ? "Congratulations! You have completed all annotations for this task." : undefined
-        });
-      }, 500);
-    });
-  }
-
-  static async getUserHistory(): Promise<any> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          annotations: this.mockAnnotations,
-          userName: "John Doe"
-        });
-      }, 500);
-    });
-  }
-
-  static async getAnnotationClasses(): Promise<any> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          classes: this.mockClasses,
-          taskId: 1,
-          datasetId: 1
-        });
-      }, 300);
-    });
-  }
-}
-
-// Header Component
-const Header = ({ userName, onLogout }: { userName: string; onLogout: () => void }) => (
-  <div className="bg-[#121A24] px-8 py-4 flex justify-between items-center border-b border-gray-700">
-    <div className="flex items-center gap-4">
-      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-        <StickyNote className="text-white" size={20} />
-      </div>
-      <div>
-        <h1 className="text-white text-xl font-medium">AnnotationHub</h1>
-        <p className="text-gray-400 text-sm">Welcome back, {userName}</p>
-      </div>
-    </div>
-    <button
-      onClick={onLogout}
-      className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
-    >
-      <LogOut size={18} />
-      Logout
-    </button>
-  </div>
-);
-
-// Navigation Tabs
-const NavigationTabs = ({ 
-  activeTab, 
-  onTabChange 
-}: { 
-  activeTab: string; 
-  onTabChange: (tab: string) => void;
-}) => {
-  const tabs = [
-    { id: 'tasks', label: 'My Tasks', icon: <ClipboardList /> },
-    { id: 'annotate', label: 'Annotate', icon: <FileText /> },
-    { id: 'history', label: 'History', icon: <Clock /> }
-  ];
-
-  return (
-    <div className="bg-[#121A24] px-8 py-4 border-b border-gray-700">
-      <div className="flex gap-1">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === tab.id 
-                ? 'bg-[#1A2532] text-white' 
-                : 'text-gray-400 hover:text-white hover:bg-[#1A2532]'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Task Card Component
-const TaskCard = ({ 
-  task, 
-  progress, 
-  onStartAnnotation 
-}: { 
-  task: Task; 
-  progress: number; 
-  onStartAnnotation: (taskId: number) => void;
-}) => {
-  const totalCouples = task.couples?.length || 0;
-  const completionPercentage = totalCouples > 0 ? (progress / totalCouples) * 100 : 0;
-
-  return (
-    <div className="bg-[#121A24] p-6 rounded-2xl hover:bg-[#1A2532] transition-colors duration-300">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <h3 className="text-xl font-semibold text-white mb-2">{task.title}</h3>
-          <p className="text-gray-400 text-sm mb-2">{task.description}</p>
-          <p className="text-gray-500 text-xs">Dataset: {task.dataset?.name}</p>
-        </div>
-        <div className="text-right">
-          <span className="text-2xl font-bold text-blue-400">{Math.round(completionPercentage)}%</span>
-          <p className="text-gray-500 text-xs">Complete</p>
-        </div>
-      </div>
-      
-      <div className="mb-4">
-        <div className="flex justify-between text-sm text-gray-400 mb-1">
-          <span>Progress</span>
-          <span>{progress} / {totalCouples}</span>
-        </div>
-        <div className="w-full bg-gray-700 rounded-full h-2">
-          <div 
-            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-            style={{ width: `${completionPercentage}%` }}
-          ></div>
-        </div>
-      </div>
-
-      <button
-        onClick={() => onStartAnnotation(task.id)}
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors"
-      >
-        {progress === 0 ? 'Start Task' : 'Continue Task'}
-      </button>
-    </div>
-  );
-};
-
-// Stats Card Component
-const StatCard = ({ 
-  title, 
-  icon, 
-  value, 
-  subtitle, 
-  color 
-}: { 
-  title: string; 
-  icon: JSX.Element; 
-  value: string; 
-  subtitle?: string; 
-  color: string;
-}) => (
-  <div className="bg-[#121A24] p-6 rounded-2xl flex items-center gap-4 hover:bg-[#1A2532] transition-colors duration-300">
-    <div className={`p-4 rounded-xl ${color}`}>
-      {React.cloneElement(icon, { size: 24, className: "text-white" })}
-    </div>
-    <div className="flex flex-col">
-      <span className="text-gray-400 text-sm font-medium">{title}</span>
-      <span className="text-white text-2xl font-bold">{value}</span>
-      {subtitle && <span className="text-gray-500 text-xs">{subtitle}</span>}
-    </div>
-  </div>
-);
-
-// Tasks Tab Component
-const TasksTab = ({ 
-  userTasksData, 
-  loading, 
-  onStartAnnotation 
-}: { 
-  userTasksData: any; 
-  loading: boolean; 
-  onStartAnnotation: (taskId: number) => void;
-}) => {
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-5 justify-center items-center py-20">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-        <p className="text-gray-400 text-lg">Loading your tasks...</p>
-      </div>
-    );
-  }
-
-  if (!userTasksData) return null;
-
-  const { tasks, taskProgressMap } = userTasksData;
-
-  // Calculate statistics
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task: Task) => {
-    const progress = taskProgressMap[task.id] || 0;
-    const totalCouples = task.couples?.length || 0;
-    return progress >= totalCouples;
-  }).length;
-  const inProgressTasks = tasks.filter((task: Task) => {
-    const progress = taskProgressMap[task.id] || 0;
-    return progress > 0 && progress < (task.couples?.length || 0);
-  }).length;
-  const totalAnnotations = Object.values(taskProgressMap).reduce((sum: number, progress: any) => sum + progress, 0);
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Tasks"
-          icon={<BarChart3 />}
-          value={totalTasks.toString()}
-          subtitle="assigned to you"
-          color="bg-blue-500"
-        />
-        <StatCard
-          title="Completed"
-          icon={<CheckSquare />}
-          value={completedTasks.toString()}
-          subtitle="tasks finished"
-          color="bg-green-500"
-        />
-        <StatCard
-          title="In Progress"
-          icon={<ClipboardCheck />}
-          value={inProgressTasks.toString()}
-          subtitle="tasks ongoing"
-          color="bg-yellow-500"
-        />
-        <StatCard
-          title="Total Annotations"
-          icon={<StickyNote />}
-          value={totalAnnotations.toString()}
-          subtitle="couples annotated"
-          color="bg-purple-500"
-        />
-      </div>
-
-      {/* Tasks Grid */}
-      <div>
-        <h2 className="text-2xl font-semibold text-white mb-4">Your Tasks</h2>
-        {tasks.length === 0 ? (
-          <div className="bg-[#121A24] p-8 rounded-2xl text-center">
-            <StickyNote className="mx-auto text-gray-500 mb-4" size={48} />
-            <h3 className="text-xl font-semibold text-gray-400 mb-2">No Tasks Assigned</h3>
-            <p className="text-gray-500">You don't have any annotation tasks assigned yet.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tasks.map((task: Task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                progress={taskProgressMap[task.id] || 0}
-                onStartAnnotation={onStartAnnotation}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Annotation Tab Component
-const AnnotationTab = ({ 
-  selectedTaskId, 
-  taskDetail, 
-  annotationClasses,
-  loading, 
-  onSubmitAnnotation,
-  onNavigate 
-}: { 
-  selectedTaskId: number | null;
-  taskDetail: TaskDetail | null;
-  annotationClasses: AnnotationClass[];
-  loading: boolean;
-  onSubmitAnnotation: (classSelection: string, notes: string) => void;
-  onNavigate: (direction: 'prev' | 'next') => void;
-}) => {
-  const [selectedClass, setSelectedClass] = useState('');
+const AnnotationTasksPage = () => {
+  const router = useRouter();
+  const { token, username } = useAuth();
+  console.log(token)
+  
+  // State management
+  const [tasks, setTasks] = useState([]);
+  const [taskProgressMap, setTaskProgressMap] = useState({});
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [currentCouple, setCurrentCouple] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [totalCouples, setTotalCouples] = useState(0);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [annotationClasses, setAnnotationClasses] = useState([]);
+  const [annotations, setAnnotations] = useState([]);
   const [notes, setNotes] = useState('');
-
-  useEffect(() => {
-    setSelectedClass('');
-    setNotes('');
-  }, [taskDetail?.currentIndex]);
-
-  if (!selectedTaskId) {
-    return (
-      <div className="bg-[#121A24] p-8 rounded-2xl text-center">
-        <FileText className="mx-auto text-gray-500 mb-4" size={48} />
-        <h3 className="text-xl font-semibold text-gray-400 mb-2">No Task Selected</h3>
-        <p className="text-gray-500">Please select a task from the Tasks tab to start annotating.</p>
-      </div>
-    );
-  }
-
-  if (loading || !taskDetail) {
-    return (
-      <div className="flex flex-col gap-5 justify-center items-center py-20">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
-        <p className="text-gray-400">Loading task details...</p>
-      </div>
-    );
-  }
-
-  const { task, currentCouple, currentIndex, totalCouples } = taskDetail;
-  const progressPercentage = ((currentIndex + 1) / totalCouples) * 100;
-
-  const handleSubmit = () => {
-    if (selectedClass) {
-      onSubmitAnnotation(selectedClass, notes);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Task Header */}
-      <div className="bg-[#121A24] p-6 rounded-2xl">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-white mb-2">{task.title}</h2>
-            <p className="text-gray-400 mb-2">{task.description}</p>
-            <p className="text-gray-500 text-sm">Dataset: {task.dataset.name}</p>
-          </div>
-          <div className="text-right">
-            <span className="text-lg font-bold text-blue-400">
-              {currentIndex + 1} / {totalCouples}
-            </span>
-            <p className="text-gray-500 text-sm">Current Progress</p>
-          </div>
-        </div>
-        
-        <div className="w-full bg-gray-700 rounded-full h-2">
-          <div 
-            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-            style={{ width: `${progressPercentage}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Text Pair */}
-      <div className="bg-[#121A24] p-6 rounded-2xl">
-        <h3 className="text-xl font-semibold text-white mb-4">Text Pair to Annotate</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-[#1A2532] p-4 rounded-lg">
-            <h4 className="text-blue-400 font-medium mb-2">Text 1</h4>
-            <p className="text-gray-300">{currentCouple.text1}</p>
-          </div>
-          <div className="bg-[#1A2532] p-4 rounded-lg">
-            <h4 className="text-blue-400 font-medium mb-2">Text 2</h4>
-            <p className="text-gray-300">{currentCouple.text2}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Annotation Form */}
-      <div className="bg-[#121A24] p-6 rounded-2xl">
-        <h3 className="text-xl font-semibold text-white mb-4">Select Classification</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          {annotationClasses.map(cls => (
-            <button
-              key={cls.id}
-              onClick={() => setSelectedClass(cls.id)}
-              className={`p-4 rounded-lg border-2 transition-colors ${
-                selectedClass === cls.id
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                  : 'border-gray-600 bg-[#1A2532] text-gray-300 hover:border-gray-500'
-              }`}
-            >
-              <div className="font-medium mb-1">{cls.name}</div>
-              <div className="text-sm opacity-75">{cls.description}</div>
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-white font-medium mb-2">Notes (Optional)</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full p-3 bg-[#1A2532] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-            rows={3}
-            placeholder="Add any additional notes about this annotation..."
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={() => onNavigate('prev')}
-            disabled={currentIndex === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-800 disabled:text-gray-500 text-white rounded-lg transition-colors"
-          >
-            <ChevronLeft />
-            Previous
-          </button>
-          
-          <button
-            onClick={handleSubmit}
-            disabled={!selectedClass}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 disabled:text-gray-400 text-white py-2 px-4 rounded-lg transition-colors"
-          >
-            Submit Annotation
-          </button>
-          
-          <button
-            onClick={() => onNavigate('next')}
-            disabled={currentIndex >= totalCouples - 1}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-800 disabled:text-gray-500 text-white rounded-lg transition-colors"
-          >
-            Next
-            <ChevronRight />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// History Tab Component
-const HistoryTab = ({ 
-  historyData, 
-  loading 
-}: { 
-  historyData: any; 
-  loading: boolean;
-}) => {
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-5 justify-center items-center py-20">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
-        <p className="text-gray-400">Loading annotation history...</p>
-      </div>
-    );
-  }
-
-  if (!historyData || !historyData.annotations.length) {
-    return (
-      <div className="bg-[#121A24] p-8 rounded-2xl text-center">
-        <Clock className="mx-auto text-gray-500 mb-4" size={48} />
-        <h3 className="text-xl font-semibold text-gray-400 mb-2">No Annotations Yet</h3>
-        <p className="text-gray-500">Your annotation history will appear here once you start annotating.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="bg-[#121A24] p-6 rounded-2xl">
-        <h2 className="text-2xl font-semibold text-white mb-2">Annotation History</h2>
-        <p className="text-gray-400">Total annotations: {historyData.annotations.length}</p>
-      </div>
-
-      <div className="space-y-4">
-        {historyData.annotations.map((annotation: Annotation) => (
-          <div key={annotation.id} className="bg-[#121A24] p-6 rounded-2xl">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{annotation.task.title}</h3>
-                <p className="text-blue-400 font-medium">Classification: {annotation.classSelection}</p>
-                <p className="text-gray-500 text-sm">
-                  {new Date(annotation.createdAt).toLocaleDateString()} at {new Date(annotation.createdAt).toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-[#1A2532] p-4 rounded-lg">
-                <h4 className="text-blue-400 font-medium mb-2">Text 1</h4>
-                <p className="text-gray-300 text-sm">{annotation.coupleText.text1}</p>
-              </div>
-              <div className="bg-[#1A2532] p-4 rounded-lg">
-                <h4 className="text-blue-400 font-medium mb-2">Text 2</h4>
-                <p className="text-gray-300 text-sm">{annotation.coupleText.text2}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Main App Component
-const UserTasksApp = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('tasks');
-  const [userName] = useState('John Doe');
-  
-  // Tasks data
-  const [userTasksData, setUserTasksData] = useState<any>(null);
-  const [tasksLoading, setTasksLoading] = useState(true);
-  
-  // Annotation data
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [taskDetail, setTaskDetail] = useState<TaskDetail | null>(null);
-  const [annotationClasses, setAnnotationClasses] = useState<AnnotationClass[]>([]);
-  const [annotationLoading, setAnnotationLoading] = useState(false);
-  
-  // History data
-  const [historyData, setHistoryData] = useState<any>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // API base URL - adjust as needed
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+  // Common headers for API requests
+  const getHeaders = () => ({
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  });
 
   // Fetch user tasks
-  const fetchUserTasks = useCallback(async () => {
+  const fetchTasks = async () => {
     try {
-      setTasksLoading(true);
-      const response = await UserTasksApiService.getUserTasks();
-      setUserTasksData(response);
-    } catch (error) {
-      console.error('Error fetching user tasks:', error);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, []);
-
-  // Fetch task detail
-  const fetchTaskDetail = useCallback(async (taskId: number, index?: number) => {
-    try {
-      setAnnotationLoading(true);
-      const [detailResponse, classesResponse] = await Promise.all([
-        UserTasksApiService.getTaskDetail(taskId, index),
-        UserTasksApiService.getAnnotationClasses()
-      ]);
-      setTaskDetail(detailResponse);
-      setAnnotationClasses(classesResponse.classes);
-    } catch (error) {
-      console.error('Error fetching task detail:', error);
-    } finally {
-      setAnnotationLoading(false);
-    }
-  }, []);
-
-  // Fetch user history
-  const fetchUserHistory = useCallback(async () => {
-    try {
-      setHistoryLoading(true);
-      const response = await UserTasksApiService.getUserHistory();
-      setHistoryData(response);
-    } catch (error) {
-      console.error('Error fetching user history:', error);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    fetchUserTasks();
-  }, [fetchUserTasks]);
-
-  // Load history when tab is activated
-  useEffect(() => {
-    if (activeTab === 'history' && !historyData) {
-      fetchUserHistory();
-    }
-  }, [activeTab, historyData, fetchUserHistory]);
-
-  const handleStartAnnotation = (taskId: number) => {
-    setSelectedTaskId(taskId);
-    setActiveTab('annotate');
-    fetchTaskDetail(taskId);
-  };
-
-  const handleSubmitAnnotation = async (classSelection: string, notes: string) => {
-    if (!taskDetail) return;
-
-    try {
-      const response = await UserTasksApiService.submitAnnotation(
-        taskDetail.task.id,
-        taskDetail.currentCouple.id,
-        classSelection,
-        taskDetail.currentIndex
-      );
-
-      if (response.completed) {
-        alert(response.completionMessage);
-        // Refresh tasks data
-        fetchUserTasks();
-        // Go back to tasks tab
-        setActiveTab('tasks');
-      } else {
-        // Load next couple
-        fetchTaskDetail(taskDetail.task.id, response.nextIndex);
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/api/user/tasks`, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 401) {
+        router.push('/home/logout');
+        return;
       }
-    } catch (error) {
-      console.error('Error submitting annotation:', error);
+      
+      const data = await response.json();
+      setTasks(data.tasks || []);
+      setTaskProgressMap(data.taskProgressMap || {});
+    } catch (err) {
+      setError('Failed to fetch tasks');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    if (!taskDetail) return;
-    
-    const newIndex = direction === 'prev' 
-      ? Math.max(0, taskDetail.currentIndex - 1)
-      : Math.min(taskDetail.totalCouples - 1, taskDetail.currentIndex + 1);
-    
-    fetchTaskDetail(taskDetail.task.id, newIndex);
+  // Fetch task details - Fixed to properly handle index parameter
+  const fetchTaskDetail = async (taskId, index = null) => {
+    try {
+      setLoading(true);
+      setError(''); // Clear any previous errors
+      
+      // Build URL with proper index handling
+      let url = `${API_BASE}/api/user/tasks/${taskId}`;
+      
+      // Always include index parameter - use 0 as default if not provided
+      // This matches your backend expectation
+      if (index !== null && index !== undefined) {
+        url += `?index=${index}`;
+      } else {
+        // When opening a task for the first time, let backend determine the index
+        // based on saved progress, but we can also explicitly pass 0
+        // Based on your curl example, you're passing index=13, so the parameter is expected
+        const savedProgress = taskProgressMap[taskId] || 0;
+        url += `?index=${savedProgress}`;
+      }
+        
+      console.log('Fetching task detail from:', url); // Debug log
+        
+      const response = await fetch(url, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 401) {
+        router.push('/home/logout');
+        return;
+      }
+      
+      if (response.status === 403) {
+        setError('Not authorized to view this task');
+        return;
+      }
+      
+      if (!response.ok) {
+        // Try to get error message from response
+        try {
+          const errorData = await response.json();
+          setError(errorData.message || errorData.error || `Failed to fetch task details (${response.status})`);
+        } catch {
+          setError(`Failed to fetch task details (${response.status})`);
+        }
+        return;
+      }
+      
+      const data = await response.json();
+      setSelectedTask(data.task);
+      setCurrentCouple(data.currentCouple);
+      setCurrentIndex(data.currentIndex);
+      setTotalCouples(data.totalCouples);
+      setSelectedClassId(data.selectedClassId || '');
+      
+      // Fetch annotation classes for this task
+      await fetchAnnotationClasses(taskId);
+    } catch (err) {
+      console.error('Error fetching task details:', err);
+      setError('Failed to fetch task details');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = () => {
-    // Simulate logout
-    alert('Logged out successfully!');
+  // Fetch annotation classes
+  const fetchAnnotationClasses = async (taskId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/user/tasks/${taskId}/classes`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAnnotationClasses(data.classes || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch annotation classes:', err);
+    }
   };
+
+  // Submit annotation
+  const submitAnnotation = async () => {
+    if (!selectedClassId || !currentCouple) {
+      setError('Please select a classification');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/api/user/tasks/${selectedTask.id}/annotate`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          coupleId: currentCouple.id,
+          classSelection: selectedClassId,
+          notes: notes,
+          currentIndex: currentIndex
+        })
+      });
+      
+      if (response.status === 401) {
+        router.push('/home/logout');
+        return;
+      }
+      
+      const data = await response.json();
+      setSuccess(data.message);
+      
+      // Refresh history if we're on the history tab to show updated data
+      if (activeTab === 'history') {
+        fetchHistory();
+      }
+      
+      if (data.completed) {
+        setSuccess(data.completionMessage);
+        setTimeout(() => {
+          setSelectedTask(null);
+          fetchTasks(); // Refresh tasks list
+          // Also refresh history to show the newly completed annotations
+          fetchHistory();
+        }, 2000);
+      } else {
+        // Move to next couple using the returned nextIndex
+        await fetchTaskDetail(selectedTask.id, data.nextIndex);
+        setNotes('');
+        setSelectedClassId(''); // Clear selection for next annotation
+      }
+    } catch (err) {
+      setError('Failed to submit annotation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch user history - Fixed to handle the API response properly
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/api/user/history`, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 401) {
+        router.push('/home/logout');
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('Raw API response:', data); // Debug log
+      
+      let processedAnnotations = [];
+      
+      if (data.annotations && Array.isArray(data.annotations)) {
+        // The API returns a mixed array where:
+        // - First element might be a full annotation object
+        // - Rest are annotation IDs (numbers)
+        // We need to extract all full annotation objects
+        
+        data.annotations.forEach(item => {
+          if (typeof item === 'object' && item !== null) {
+            // This is a full annotation object
+            if (item.id && item.coupleText && item.chosenClass) {
+              processedAnnotations.push({
+                id: item.id,
+                coupleText: item.coupleText,
+                chosenClass: item.chosenClass,
+                notes: item.notes || ''
+              });
+            }
+            
+            // Check if this object has nested annotations (like in annotateur.annotations)
+            if (item.annotateur && item.annotateur.annotations) {
+              item.annotateur.annotations.forEach(nestedItem => {
+                if (typeof nestedItem === 'object' && nestedItem !== null && 
+                    nestedItem.id && nestedItem.coupleText && nestedItem.chosenClass) {
+                  processedAnnotations.push({
+                    id: nestedItem.id,
+                    coupleText: nestedItem.coupleText,
+                    chosenClass: nestedItem.chosenClass,
+                    notes: nestedItem.notes || ''
+                  });
+                }
+              });
+            }
+          }
+        });
+        
+        // Remove duplicates based on ID
+        const uniqueAnnotations = processedAnnotations.filter((annotation, index, self) => 
+          index === self.findIndex(a => a.id === annotation.id)
+        );
+        
+        // Sort by ID in descending order (most recent first)
+        uniqueAnnotations.sort((a, b) => b.id - a.id);
+        
+        console.log('Processed annotations:', uniqueAnnotations); // Debug log
+        setAnnotations(uniqueAnnotations);
+      } else {
+        setAnnotations([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+      setError('Failed to fetch history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Navigate between couples - Fixed to properly pass index
+  const navigateCouple = (direction) => {
+    const newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (newIndex >= 0 && newIndex < totalCouples) {
+      fetchTaskDetail(selectedTask.id, newIndex);
+    }
+  };
+
+  // Helper function to determine if task is completed
+  const isTaskCompleted = (task, progress) => {
+    // A task is completed if the progress (number of annotations) equals the total couples
+    // We need to get the total couples count from the task detail
+    // For now, we'll use a heuristic: if progress >= 3 and no more couples to annotate
+    return progress >= (task.totalCouples || 3); // Assuming totalCouples is available
+  };
+
+  // Helper function to get task status
+  const getTaskStatus = (task, progress) => {
+    if (isTaskCompleted(task, progress)) {
+      return { text: 'Completed', color: 'bg-green-100 text-green-800', icon: Check };
+    }
+    return { text: 'In Progress', color: 'bg-yellow-100 text-yellow-800', icon: Clock };
+  };
+
+  // Check if task can be continued (has more couples to annotate)
+  const canContinueTask = async (taskId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/user/tasks/${taskId}?index=0`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const progress = taskProgressMap[taskId] || 0;
+        return progress < data.totalCouples;
+      }
+    } catch (err) {
+      console.error('Error checking task continuation:', err);
+    }
+    return true; // Default to true to allow attempting
+  };
+
+  // Load initial data
+  useEffect(() => {
+    if (token) {
+      fetchTasks();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab]);
+
+  // Clear messages after 3 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
+
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 w-96">
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">Please log in to access your tasks.</p>
+            <button 
+              onClick={() => router.push('/login')} 
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#18212E]">
-      <Header userName={userName} onLogout={handleLogout} />
-      <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
-      
-      <div className="p-8">
-        {activeTab === 'tasks' && (
-          <TasksTab 
-            userTasksData={userTasksData}
-            loading={tasksLoading}
-            onStartAnnotation={handleStartAnnotation}
-          />
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <BookOpen className="h-8 w-8 text-blue-600" />
+              <h1 className="text-xl font-semibold text-gray-900">
+                Annotation Tasks
+              </h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <User className="h-5 w-5 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">
+                  {username}
+                </span>
+              </div>
+              <button
+                onClick={() => router.push('/home/logout')}
+                className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Alerts */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-800">{error}</p>
+          </div>
         )}
         
-        {activeTab === 'annotate' && (
-          <AnnotationTab
-            selectedTaskId={selectedTaskId}
-            taskDetail={taskDetail}
-            annotationClasses={annotationClasses}
-            
-loading={annotationLoading}
-            onSubmitAnnotation={handleSubmitAnnotation}
-            onNavigate={handleNavigate}
-          />
+        {success && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-green-800">{success}</p>
+          </div>
         )}
-        
-        {activeTab === 'history' && (
-          <HistoryTab 
-            historyData={historyData}
-            loading={historyLoading}
-          />
+
+        {/* Task Detail View */}
+        {selectedTask ? (
+          <div className="space-y-6">
+            {/* Task Header */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setSelectedTask(null)}
+                className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Back to Tasks</span>
+              </button>
+              <div className="text-sm text-gray-600">
+                {currentIndex + 1} of {totalCouples} couples
+              </div>
+            </div>
+
+            {/* Check if task is completed */}
+            {currentIndex >= totalCouples ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Task Completed!</h3>
+                <p className="text-green-700">You have successfully completed all annotations for this task.</p>
+                <button
+                  onClick={() => {
+                    setSelectedTask(null);
+                    fetchTasks();
+                  }}
+                  className="mt-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Back to Tasks
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Task Info */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-black" >Task #{selectedTask.id}</h2>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      {Math.round(((currentIndex + 1) / totalCouples) * 100)}% Complete
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${((currentIndex + 1) / totalCouples) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600">
+                    Due: {selectedTask.dateLimite ? new Date(selectedTask.dateLimite).toLocaleDateString() : 'No deadline'}
+                  </div>
+                </div>
+
+                {/* Current Couple */}
+                {currentCouple && (
+                  <div className="bg-white rounded-lg shadow p-6 space-y-6">
+                    <h3 className="text-lg font-semibold text-black">Text Pair to Annotate</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Text 1
+                        </label>
+                        <div className="p-3 bg-gray-50 rounded-md border">
+                          <p className="text-sm text-black">{currentCouple.text_1}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Text 2
+                        </label>
+                        <div className="p-3 bg-gray-50 rounded-md border">
+                          <p className="text-sm text-black">{currentCouple.text_2}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Classification Options */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Select Classification
+                      </label>
+                      <div className="space-y-3">
+                        {annotationClasses.map((cls) => (
+                          <div key={cls.id} className="flex items-start space-x-3">
+                            <input
+                              type="radio"
+                              id={`class-${cls.id}`}
+                              name="classification"
+                              value={cls.id.toString()}
+                              checked={selectedClassId === cls.id.toString()}
+                              onChange={(e) => setSelectedClassId(e.target.value)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 mt-1"
+                            />
+                            <label htmlFor={`class-${cls.id}`} className="flex-1 cursor-pointer">
+                              <div className="font-medium text-gray-900">{cls.textClass}</div>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
+                        Notes (Optional)
+                      </label>
+                      <textarea
+                        id="notes"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Add any additional notes about this annotation..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Navigation and Submit */}
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <button
+                        onClick={() => navigateCouple('prev')}
+                        disabled={currentIndex === 0}
+                        className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span>Previous</span>
+                      </button>
+
+                      <button
+                        onClick={submitAnnotation}
+                        disabled={!selectedClassId || loading}
+                        className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <CheckCircle className="h-4 w-4" />
+                        )}
+                        <span>{currentIndex === totalCouples - 1 ? 'Complete Task' : 'Submit & Next'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => navigateCouple('next')}
+                        disabled={currentIndex >= totalCouples - 1}
+                        className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          /* Tasks List and History */
+          <div>
+            {/* Tab Navigation */}
+            <div className="flex space-x-1 mb-8">
+              <button
+                onClick={() => setActiveTab('tasks')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium ${
+                  activeTab === 'tasks' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Home className="h-4 w-4" />
+                <span>My Tasks</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium ${
+                  activeTab === 'history' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </button>
+            </div>
+
+            {/* Tasks Tab */}
+            {activeTab === 'tasks' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">Your Tasks</h2>
+                  <button 
+                    onClick={fetchTasks} 
+                    disabled={loading}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {loading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Loading tasks...</p>
+                  </div>
+                ) : tasks.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow p-8 text-center">
+                    <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No tasks assigned yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tasks.map((task) => {
+                      const currentProgress = taskProgressMap[task.id] || 0;
+                      const status = getTaskStatus(task, currentProgress);
+                      const StatusIcon = status.icon;
+                      
+                      return (
+                        <div key={task.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+                          <div className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-lg font-semibold text-black">Task #{task.id}</h3>
+                              <span className={`flex items-center px-2 py-1 text-xs rounded-full ${status.color}`}>
+                                <StatusIcon className="h-3 w-3 mr-1" />
+                                {status.text}
+                              </span>
+                            </div>
+                            
+                            <div className="text-sm text-gray-600 mb-4">
+                              <p><strong>Annotator:</strong> {task.annotateur?.nom} {task.annotateur?.prenom}</p>
+                              <p><strong>Deadline:</strong> {task.dateLimite ? new Date(task.dateLimite).toLocaleDateString() : 'No deadline'}</p>
+                              <p><strong>Progress:</strong> {currentProgress} annotations completed</p>
+                            </div>
+
+                            <button 
+                              onClick={() => fetchTaskDetail(task.id)}
+                              className={`w-full px-4 py-2 rounded-md text-white ${
+                                status.text === 'Completed' 
+                                  ? 'bg-green-600 hover:bg-green-700' 
+                                  : 'bg-blue-600 hover:bg-blue-700'
+                              }`}
+                            >
+                              {status.text === 'Completed' ? 'View Task' : 'Continue Task'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* History Tab */}
+            {activeTab === 'history' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">Annotation History</h2>
+                  <button 
+                    onClick={fetchHistory} 
+                    disabled={loading}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {loading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+                
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Loading history...</p>
+                  </div>
+                ) : annotations.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow p-8 text-center">
+                    <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No annotations completed yet.</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg shadow">
+                    <div className="p-6">
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-600">
+                          Total annotations: <span className="font-semibold">{annotations.length}</span>
+                        </p>
+                      </div>
+                      <div className="space-y-6">
+                        {annotations.map((annotation, index) => (
+                          <div key={annotation.id || index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-2">
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                  Annotation #{annotation.id}
+                                </span>
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                  Class: {annotation.chosenClass}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 mb-1">Text 1:</p>
+                                <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded border">
+                                  {annotation.coupleText?.text_1 || 'N/A'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 mb-1">Text 2:</p>
+                                <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded border">
+                                  {annotation.coupleText?.text_2 || 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {annotation.notes && (
+                              <div className="mb-3">
+                                <p className="text-xs font-medium text-gray-500 mb-1">Notes:</p>
+                                <p className="text-sm text-gray-700 italic bg-yellow-50 p-2 rounded border">
+                                  {annotation.notes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };
 
-export default UserTasksApp;
+export default AnnotationTasksPage;

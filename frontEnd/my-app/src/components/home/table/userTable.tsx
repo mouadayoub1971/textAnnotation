@@ -85,13 +85,7 @@ const UserTable = ({ users, changeStatusUser, toggleUserStatus, deleteUser }: Us
           <td className="py-4">
             <div className="flex justify-center items-center gap-2">
               {/* Change Role Button */}
-              <div 
-                className="w-12 h-9 bg-[#216BFE] text-white flex justify-center items-center rounded-md hover:brightness-125 cursor-pointer duration-300"
-                onClick={() => changeStatusUser(user.id)}
-                title="Change Role"
-              >
-                <GiPadlockOpen />
-              </div>
+              
               
               {/* Toggle Status Button */}
               <div 
@@ -103,13 +97,7 @@ const UserTable = ({ users, changeStatusUser, toggleUserStatus, deleteUser }: Us
               </div>
               
               {/* Delete Button */}
-              <div 
-                className="w-12 h-9 bg-[#FF5771] text-white flex justify-center items-center rounded-md hover:brightness-125 cursor-pointer duration-300"
-                onClick={() => deleteUser(user.id)}
-                title="Delete User"
-              >
-                <MdDeleteForever />
-              </div>
+              
             </div>
           </td>
         </tr>

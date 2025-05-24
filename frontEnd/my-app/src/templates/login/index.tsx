@@ -15,7 +15,8 @@ const Login = ({ emailInput, passInput, setEmailInput, setPassInput, handleLogin
     <div className="flex flex-row justify-center items-center h-screen">
       <div className="flex flex-col w-full h-full justify-center items-center bg-[#121A24]">
         <div className="flex flex-col items-center">
-          <div className="font-extrabold text-xl mb-9 text-[#FDFDFD]">Sign in to MoneyLaundry</div>
+          <div className="w-16 h-16 mb-4"><Image src="/Icon.png" width={100} height={100} alt="MoneyLaundry Icon" /></div>
+          <div className="font-extrabold text-xl mb-9 text-[#FDFDFD]">Sign in</div>
         </div>
         <form onSubmit={handleLogin} className="flex flex-col gap-5 w-80" >
           <Email value={emailInput} onChange={(e) => setEmailInput(e.target.value)} />

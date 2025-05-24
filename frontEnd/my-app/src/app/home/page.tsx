@@ -335,9 +335,9 @@ const StatisticsDashboard: React.FC<{
   };
 
   return (
-    <div className={`p-8 bg-[#18212E] h-screen ${open ? "w-[85vw]" : "w-[96vw]"} flex flex-col gap-5 justify-center items-center duration-500 origin-left overflow-y-auto`}>
+    <div className={`p-8 bg-[#18212E] h-screen ${open ? "w-[85vw]" : "w-[96vw]"} flex flex-col gap-5 justify-center items-center duration-500 origin-left overflow-y-auto `}>
       {/* Header */}
-      <div className="w-full mb-4 flex justify-between items-center">
+      <div className="w-full mb-4 flex justify-between items-center mt-12">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">
             Statistics Dashboard
@@ -358,7 +358,7 @@ const StatisticsDashboard: React.FC<{
       </div>
 
       {/* Main Statistics Cards */}
-      <div className="flex gap-4 w-full justify-center px-3 mb-4">
+      <div className="flex gap-4 w-full justify-center px-3 mb-4 mt-6">
         <StatCard
           title="Total Annotations"
           icon={<TbNotes />}
@@ -534,7 +534,7 @@ const StatisticsPage = () => {
   return (
     <>
       {isDesktop ? (
-        <div className="flex fixed">
+        <div className="flex fixed ">
           <Sidebar page="/statistics" />
           <StatisticsDashboard 
             open={open} 

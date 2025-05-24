@@ -27,6 +27,12 @@ interface Dataset {
   totalCoupleTexts: number;
   tasks?: Task[];
   classes?: string[];
+  classesPossibles?: ClassPossible[];
+}
+
+interface ClassPossible {
+  id: number;
+  textClass: string;
 }
 
 interface Task {
@@ -447,9 +453,7 @@ const DatasetManagement = () => {
                   <th className="py-4 px-4 text-left">ID</th>
                   <th className="py-4 px-4 text-left">Name</th>
                   <th className="py-4 px-4 text-left">Description</th>
-                  <th className="py-4 px-4 text-center">Total Texts</th>
-                  <th className="py-4 px-4 text-center">Assigned Tasks</th>
-                  <th className="py-4 px-4 text-center">Created</th>
+                  <th className="py-4 px-4 text-center">Classes</th>
                   <th className="py-4 px-4 text-center">Actions</th>
                 </tr>
               </thead>
@@ -465,17 +469,29 @@ const DatasetManagement = () => {
                       {dataset.description}
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs">
-                        {dataset.totalCoupleTexts || 0}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="bg-green-600 text-white px-2 py-1 rounded-full text-xs">
-                        {dataset.tasks ? dataset.tasks.length : 0}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center text-sm text-gray-400">
-                      {dataset.createdAt ? new Date(dataset.createdAt).toLocaleDateString() : 'N/A'}
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {dataset.classesPossibles && dataset.classesPossibles.length > 0 ? (
+                          dataset.classesPossibles.map((classItem, idx) => (
+                            <span 
+                              key={idx} 
+                              className="bg-purple-600 text-white px-2 py-1 rounded-full text-xs"
+                            >
+                              {classItem.textClass}
+                            </span>
+                          ))
+                        ) : dataset.classes && dataset.classes.length > 0 ? (
+                          dataset.classes.map((className, idx) => (
+                            <span 
+                              key={idx} 
+                              className="bg-purple-600 text-white px-2 py-1 rounded-full text-xs"
+                            >
+                              {className}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-xs">No classes</span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex justify-center items-center gap-2">
@@ -496,15 +512,7 @@ const DatasetManagement = () => {
                         >
                           <FaUsers />
                         </button>
-                        
-                        {/* Delete Dataset */}
-                        <button
-                          onClick={() => deleteDataset(dataset.id)}
-                          className="w-10 h-8 bg-[#FF5771] text-white flex justify-center items-center rounded-md hover:brightness-125 cursor-pointer duration-300"
-                          title="Delete Dataset"
-                        >
-                          <FaTrash />
-                        </button>
+                       
                       </div>
                     </td>
                   </tr>
